@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - 'v*'
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v1
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: pip install -r requirements_dev.txt
+
+      - name: Flake8 lint
+        uses: TrueBrain/actions-flake8@v2
+        with:
+          path: custom_components
+
+      - name: Flake8 lint tests
+        uses: TrueBrain/actions-flake8@v2
+        with:
+          path: tests
+
+      - name: Verify import sorting
+        run: isort --diff --check-only tests custom_components
+
+  tests:
+    name: Run tests (${{ matrix.ha-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - ha-version: '2021.7'
+            pytest-component-version: 0.4.2
+          - ha-version: '2021.8'
+            pytest-component-version: 0.4.3
+          - ha-version: '2021.9'
+            pytest-component-version: 0.4.4
+          - ha-version: '2021.10'
+            pytest-component-version: 0.4.5
+          - ha-version: '2021.11'
+            pytest-component-version: 0.4.9
+            latest: true
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v1
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          pip install pytest-homeassistant-custom-component==${{ matrix.pytest-component-version }} \
+                      aiohttp-cors==0.7.0 \
+                      pytest-socket==0.4.1
+
+      - name: Test with pytest
+        run: |
+          pytest \
+            -qq \
+            --timeout 9 \
+            --durations 10 \
+            -n auto \
+            --cov custom_components.yandex_smart_home \
+            --cov-report xml \
+            -o console_output_style=count \
+            -p no:sugar \
+            tests
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v2
+        if: ${{ matrix.latest == true }}
+
+  validate:
+    name: Validate for HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration

@@ -1,191 +1,141 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
+[![codecov](https://codecov.io/gh/dmitry-k/yandex_smart_home/branch/master/graph/badge.svg?token=5ET7CQ3JTB)](https://codecov.io/gh/dmitry-k/yandex_smart_home)
 
-## Yandex Smart Home custom component for Home Assistant
+# Компонент Yandex Smart Home для Home Assistant
+Компонент позволяет добавить устройства из Home Assistant в платформу [умного дома Яндекса](https://yandex.ru/dev/dialogs/smart-home) (УДЯ)
+и управлять ими с любого устройства с Алисой: умные колонки, приложение на телефоне, веб интерфейс [квазар](https://yandex.ru/quasar/iot).
 
-### Installation
+- [Установка](#установка)
+- [Подготовка к настройке](#подготовка-к-настройке)
+  - [Названия устройств](#названия-устройств)
+  - [Комнаты](#комнаты)
+  - [Фильтры](#фильтры)
+- [Настройка интеграции](#настройка-интеграции)
+  - [Изменение типа подключения](#изменение-типа-подключения)
+- [Расширенные настройки и возможности](#расширенные-настройки-и-возможности)
+- [Проблемы](#проблемы)
+  - [Ошибка при обновлении устройств](#ошибка-при-обновлении-устройств)
+  - [Устройство не появляется в УДЯ](#устройство-не-появляется-в-удя)
+  - [Ошибка "Что-то пошло не так" при частых действиях](#ошибка-что-то-пошло-не-так-при-частых-действиях)
+  - [Как отвязать навык (производителя)](#как-отвязать-навык-производителя)
+- [Вопросы и ответы](#вопросы-и-ответы)
+  - [Почему навык называется Yaha Cloud, а не Home Assistant?](#почему-навык-называется-yaha-cloud-а-не-home-assistant)
+- [Полезные ссылки](#полезные-ссылки)
 
-1. Configure SSL certificate if it was not done already (do not use self-signed certificate)
-1. Update home assistant to 0.112.0 at least
-1. Install [HACS](https://hacs.xyz/) and search for "Yandex Smart Home" there. That way you get updates automatically. But you also can just copy and add files into custom_components directory manually instead
-1. Configure component via configuration.yaml (see instructions below)
-1. Restart home assistant
-1. Create dialog via https://dialogs.yandex.ru/developer/
-1. Add devices via your Yandex app on android/ios
 
-### Configuration
+## Установка
+Для работы компонента требуется Home Assistant версии **2021.7** или новее.
 
-Now add the following lines to your `configuration.yaml` file:
+**Способ 1:** [HACS](https://hacs.xyz/)
+> HACS > Интеграции > Добавить > Yandex Smart Home
 
-```yaml
-# Example configuration.yaml entry
-yandex_smart_home:
-  settings:
-    pressure_unit: mmHg
-  filter:
-    include_domains:
-      - switch
-      - light
-    include_entities:
-      - media_player.tv
-      - media_player.tv_lg
-      - media_player.receiver
-    exclude_entities:
-      - light.highlight
-  entity_config:
-    switch.kitchen:
-      name: CUSTOM_NAME_FOR_YANDEX_SMART_HOME
-    light.living_room:
-      room: LIVING_ROOM
-    media_player.tv_lg:
-      channel_set_via_media_content_id: true
-    fan.xiaomi_miio_device:
-      name: "Увлажнитель"
-      room: LIVING_ROOM
-      type: devices.types.humidifier
-      properties:
-        - type: temperature
-          entity: sensor.temperature_158d000444c824
-        - type: humidity
-          attribute: humidity
-        - type: water_level
-          attribute: depth
-    climate.tion_breezer:
-      name: "Проветриватель"
-      modes:
-        fan_speed:
-          auto: [auto]
-          min: [1,'1.0']
-          low: [2,'2.0']
-          medium: [3,'3.0']
-          high: [4,'4.0']
-          turbo: [5,'5.0']
-          max: [6,'6.0']
-    media_player.receiver:
-      type: devices.types.media_device.receiver
-      relative_volume_only: false
-      range:
-        max: 95
-        min: 20
-        precision: 2
-    humidifier.bedroom:
-      modes:
-        program:
-          normal:
-            - normal
-          eco:
-            - away
-      properties:
-        - type: temperature
-          entity: sensor.bedroom_temperature
-        - type: humidity
-          entity: sensor.bedroom_humidity
-        - type: water_level
-          entity: sensor.humidifier_level
-```
+**Способ 2:**
+Вручную скопируйте папку `custom_components/yandex_smart_home` из [latest release](https://github.com/dmitry-k/yandex_smart_home/releases/latest) в директорию `/config/custom_components`
 
-Configuration variables:
+После установки перезапустите Home Assistant.
 
-```yaml
-yandex_smart_home:
-  (map) (Optional) Configuration options for the Yandex Smart Home integration.
+## Подготовка к настройке
+В Умном доме Яндекса существует ряд особенностей и ограничений, которые необходимо знать для максимально безпроблемной эксплуатации компонента.
 
-  settings:
-    (map) (Optional) Various settings that affect this integration.
-    pressure_unit:
-      (string) (Optional) Pressure unit to use when exposing pressure entities, available units: pa, mmHg (default), atm, bar
-      Value conversion is done automatically from 'hPa' or 'mbar' that Home Assistant supports.
+### Названия устройств
+В названиях устройств возможны **только** русские символы и цифры. Во избежание ручного переименования, рекомендуется сразу задать правильные названия в Home Assistant. Способы сделать это:
+  1. На странице "Настройки" > "Объекты" используя поле "Название"
+  2. Через атрибут `friendly_name` в [customization.yaml](https://www.home-assistant.io/docs/configuration/customizing-devices/)
+  3. Через параметр `name` в [расширенной настройке устройств](docs/advanced-settings.md#параметры-устройств-entity_config)
+  4. Через параметр `alias` для скриптов
 
-  filter:
-    (map) (Optional) description: Filters for entities to include/exclude from Yandex Smart Home.
-    include_entities:
-      (list) (Optional) description: Entity IDs to include.
-    include_domains:
-      (list) (Optional) Domains to include.
-    exclude_entities:
-      (list) (Optional) Entity IDs to exclude.
-    exclude_domains:
-      (list) (Optional) Domains to exclude.
+### Комнаты
+Для нового устройства в УДЯ комната может назначаться автоматически, для этого она должна быть указана в Home Assistant. К именам комнат предъявляются те же требования, что и к именам устройств (только русские символы и цифры). Способы добавить устройство в комнату:
+  1. На странице "Настройки" > "Пространства" создайте нужные комнаты. Выберите комнату в свойствах устройства на странице "Настройки" > "Объекты" или "Настройки" > "Устройства"
+  2. Через параметр `room` в [расширенной настройке устройств](docs/advanced-settings.md#параметры-устройств-entity_config)
 
-  entity_config:
-    (map) (Optional) Entity specific configuration for Yandex Smart Home.
-    ENTITY_ID:
-      (map) (Optional) Entity to configure.
-      name:
-        (string) (Optional) Name of entity to show in Yandex Smart Home.
-      room:
-        (string) (Optional) Associating this device to a room in Yandex Smart Home
-      type:
-        (string) (Optional) Allows to force set device type. For example set devices.types.purifier to display device as purifier (instead default devices.types.humidifier for such devices) 
-      channel_set_via_media_content_id:
-        (boolean) (Optional) (media_player only) Enables ability to set channel
-         by number for 
-        part of TVs (TVs that support channel change via passing number as media_content_id)
-      relative_volume_only:
-        (boolean) (Optional) (media_player only) Force disable ability to get/set volume by number
-      properties:
-        - type:
-            (string) (Optional) Sensor type, available types: humidity, temperature, pressure, water_level, co2_level, power, voltage, battery_level, amperage
-          entity:
-            (string) (Optional) Custom entity, any sensor can be added 
-          attribute:
-            (string) (Optional) Attribute of an object to receive data
-      range: (Optional)
-        max:
-          (float) (Optional) Range Maximum
-        min:
-          (float) (Optional) Range Minimum
-        precision:
-          (float) (Optional) Range Precision (adjustment step)
-      modes:
-        (map) (Optional) Map of yandex mode functions (https://yandex.ru/dev/dialogs/alice/doc/smart-home/concepts/mode-instance-docpage/)
-        fan_speed|cleanup_mode|program:
-          (map) (Optional) Map of yandex modes (https://yandex.ru/dev/dialogs/alice/doc/smart-home/concepts/mode-instance-modes-docpage/) to HA modes.
-          yandex_mode1:
-            - ha_mode1
-          yandex_mode2: [ha_mode2, ha_mode2b]
-```
+**Важно!** Комнаты в УДЯ нужно создать **вручную** через [квазар](https://yandex.ru/quasar/iot) **перед** добавлением устройств: нажмите иконку "плюс" в правом верхнем углу > выберите "Комнату".
 
-### Available domains
+При ручном обновлении списка устройств важно **не выбирать** "Дом", а просто понажимать стрелку "Назад":
 
-The following domains are available to be used:
+| <img src="docs/images/quasar_discovery_1.png" width="350"> | <img src="docs/images/quasar_discovery_2.png" width="350"> |
+|:---:|:---:|
+| Нажать "Далее" | **Не нажимать** "Выбрать", вместо этого нажимать стрелку назад.<br>После выхода в список устройств обновите страницу |
 
-- climate (on/off, temperature, mode, fan speed) (properties: temperature , humidity)
-- cover (on/off = close/open)
-- fan (on/off, fan speed, oscillation)
-- group (on/off)
-- input_boolean (on/off)
-- scene (on/off)
-- script (on/off)
-- light (on/off, brightness, color, color temperature)
-- media_player (on/off, mute/unmute, volume, input_source, pause/unpause, channels: up/down as prev/next 
-track, get/set media_content_id via channel number for part of TVs(enabled 
-via extra option "channel_set_via_media_content_id: true" in entity 
-configurations))
-- switch (on/off)
-- vacuum (on/off, pause/unpause, clean speed) (properties: battery)
-- water_heater (on/off, temperature)
-- lock (on/off = lock/unlock)
-- sensor (properties: temperature, humidity, pressure)
-- humidifier (on/off, mode, target humidity)
+### Фильтры
+Во время настройки интеграции вам будет предложено выбрать устройства, которые будут добавлены в УДЯ (фильтры). Сперва рекомендуется выбрать как можно меньше устройств, а остальные добавлять постепенно.
 
-### Room/Area support
+Причина - фильтры используется только при добавлении новых устройств. Если устройство уже добавлено в УДЯ, его исключение с помощью фильтров не даст никакого эффекта и его придётся удалять из УДЯ вручную. Для удаления **всех устройств** - [отвяжите навык/производителя](#как-отвязать-навык-производителя).
 
-Entities that have not got rooms explicitly set and that have been placed in Home Assistant areas will return room hints to Yandex Smart Home with the devices in those areas.
+Для продвинутых пользователей есть возможность настраивать фильтры [через YAML](docs/advanced-settings.md#фильтрация-устройств-filter).
 
-### Create Dialog
+## Настройка интеграции
+Интеграция поддерживает два типа подключения:
+1. Через облако (бета-тест): доступно с версии 0.3.0, настройка в несколько кликов, не требует доступа к Home Assistant из интернета, полностью бесплатно
+2. Прямое подключение: **только для продвинутых пользователей**, УДЯ подключается к Home Assistant через интернет, необходимо самостоятельно настроить доступ к Home Assistant по HTTPS извне, сложная многоступенчатая настройка ([подробнее](docs/direct-connection.md))
 
-Go to https://dialogs.yandex.ru/developer/ and create smart home skill.
+Для настройки интеграции:
+* В Home Assistant: Настройки > Интеграции > Добавить интеграцию > Yandex Smart Home. Если интеграции нет в списке - обновите страницу.
+* **Внимательно** следуйте указаниям мастера настройки.
 
-Field | Value
------------- | -------------
-Endpoint URL | https://[YOUR HOME ASSISTANT URL:PORT]/api/yandex_smart_home
+### Изменение типа подключения
+* Тип подключения можно выбрать **только** при добавлении интеграции. Для перехода с прямого подключения на облачное или наоборот:
+  * [Отвяжите навык/производителя](#как-отвязать-навык-производителя) с полным удалением всех устройств.
+  * Удалите интеграцию на странице "Интеграции" и добавьте заново с нужным типом подключения.
+* **Не удаляйте интеграцию** с облачным подключением без надобности. При её удалении происходит отвязка от УДЯ и при повторной настройке интеграции потребуется снова выполнять привязку к Яндексу через квазар (уже с новыми реквизитами).
+* При изменении типа подключения конфигурацию в YAML менять или удалять не требуется. Настройка `notifier` в облачном подключении не используется, можно удалить её из YAML.
 
-For account linking use button at the bottom of skill settings page, fill it
- using values like below:
+## Расширенные настройки и возможности
+Компонент поддерживает расширенную настройку устройств и фильтров через [configuration.yaml](https://www.home-assistant.io/docs/configuration/).
 
-Field | Value
------------- | -------------
-Client identifier | https://social.yandex.net/
-API authorization endpoint | https://[YOUR HOME ASSISTANT URL:PORT]/auth/authorize
-Token Endpoint | https://[YOUR HOME ASSISTANT URL:PORT]/auth/token
-Refreshing an Access Token | https://[YOUR HOME ASSISTANT URL:PORT]/auth/token
+Для применения изменений из YAML перезагрузите интеграцию на странице "Настройки" -> "Интеграции" или "Настройки" -> "Сервер" (не забудьте включить "Расширенный режим" в профиле пользователя).
+
+* [Тонкая настройка через YAML](docs/advanced-settings.md)
+* [Режимы и пользовательские умения](docs/capabilities.md)
+* [Датчики](docs/sensors.md)
+* [Пример YAML конфигурации](docs/config-example.yaml)
+
+## Проблемы
+
+### Ошибка при обновлении устройств
+* Проверьте журнал Home Assistant на наличие ошибок (Настройки > Журнал), возможно вы ошиблись в YAML конфигурации (особенно в параметрах `properties` или `custom_*`).
+* Если используется [прямое подключение](docs/direct-connection.md) - повторно нажмите кнопку "Опубликовать" в настройках диалога. Если при этом возникают ошибки - подробнее о них [здесь](docs/direct-connection.md#ошибки-при-публикации-навыка).
+
+### Устройство не появляется в УДЯ
+* Убедитесь, что устройство не исключено в фильтрах (в настройках интеграции через GUI или YAML).
+* Перезапустите Home Assistant.
+* Выполните ручное "Обновление списка устройств" в УДЯ через [квазар](https://yandex.ru/quasar/iot): нажмите иконку "плюс" в правом верхнем углу > "Устройство умного дома" > Найти/выбрать ваш диалог (Yaha Cloud для облачного подключения) > "Обновить список устройств"
+* Если это не помогло cоздайте [issue](https://github.com/dmitry-k/yandex_smart_home/issues) или напишите в [чат](https://t.me/yandex_smart_home).
+  К сообщению приложите:
+  * **ID** и **атрибуты** проблемных устройств. Их можно найти в "Панель разработчика" (Developer Tools) > "Состояния" (States).
+  * YAML конфигурацию `yandex_smart_home` (если имеется, лучше целиком, или только `filter` и `entity_config` для проблемного устройства).
+  * Для прямого подключения:
+    * Крайне желательно (но можно не сразу) [приложить лог](docs/direct-connection.md#получение-лога-обновления-списка-устройств-из-удя) обновления списка устройств
+    * Если в окне отладки пусто, а УДЯ выдает ошибку "Не получилось обновить список устройств" - нужен [лог запросов и ответов](docs/direct-connection.md#получение-лога-обновления-списка-устройств-из-home-assistant) со стороны Home Assistant
+  * Для облачного подключения:
+    * Первые 8-10 символов вашего ID (можно посмотреть в настройках интеграции)
+    * Дату и время обновления списка устройств
+
+### Ошибка "Что-то пошло не так" при частых действиях
+Если попытаться "быстро" управлять устройством, например изменять температуру многократными нажатиями "+", выскочит ошибка:
+"Что-то пошло не так. Попробуйте позднее ещё раз".
+
+Это **нормально**. УДЯ ограничивает количество запросов, которые могут придти от пользователя в единицу времени. Нажимайте кнопки медленнее :)
+
+### Как отвязать навык (производителя)
+В некоторых случаях может потребоваться полностью отвязать диалог/навык/производителя от УДЯ и удалить все устройства. Это может быть полезно если в УДЯ выгрузили много лишнего из Home Assistant, и удалять руками каждое устройство не хочется.
+
+Для отвязки через [квазар](https://yandex.ru/quasar/iot):
+* Нажмите иконку "плюс" в правом верхнем углу > "Устройство умного дома" > Найти/выбрать ваш диалог (Yaha Cloud для облачного подключения)
+* Нажмите корзинку в правом верхнем углу
+* Поставьте галочку "Удалить устройства" и нажмите "Отвязать от Яндекса"
+
+
+## Вопросы и ответы
+### Почему навык называется Yaha Cloud, а не Home Assistant?
+При использовании облачного подключения в УДЯ выбирается навык со странным названием Yaha Cloud, а не с логичным Home Assistant.
+
+Почему? Причина проста: "Home Assistant" является зарегистрированной торговой маркой, а по правилам каталога навыков Алисы торговую марку может использовать только её владелец (в данном случае компания Nabu Casa).
+
+Что значит Yaha? Всё просто - **YA**ndex + **H**ome**A**ssistant :)
+
+## Полезные ссылки
+* https://t.me/yandex_smart_home - Чат по компоненту в Телеграме
+* https://github.com/AlexxIT/YandexStation - Управление колонками с Алисой из Home Assistant и проброс устройств из УДЯ в Home Assistant
+* https://github.com/allmazz/yandex_smart_home_ip - Список IP адресов платформы умного дома Яндекса
+* https://stats.uptimerobot.com/QX83nsXBWW - Мониторинг доступности облачного подключения
