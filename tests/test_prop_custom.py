@@ -86,14 +86,6 @@ async def test_property_custom(hass, domain, instance):
         assert prop.retrievable
 
 
-async def test_property_custom_no_beta(hass):
-    state = State('binary_sensor.test', STATE_ON)
-    prop = CustomEntityProperty.get(hass, ConfigNoBeta(), state, {
-        const.CONF_ENTITY_PROPERTY_TYPE: 'button'
-    })
-    assert prop.supported() is False
-
-
 async def test_property_custom_get_value_button_event(hass):
     state = State('sensor.button', '')
     prop = CustomEntityProperty.get(hass, BASIC_CONFIG, state, {
@@ -197,7 +189,8 @@ async def test_property_custom_value_float_limit(hass):
 
 @pytest.mark.parametrize('instance,unit,value', [
     (const.FLOAT_INSTANCE_PRESSURE, 'mmHg', 100),
-    (const.FLOAT_INSTANCE_TVOC, 'ppb', 449.63)
+    (const.FLOAT_INSTANCE_TVOC, 'ppb', 449.63),
+    (const.FLOAT_INSTANCE_AMPERAGE, 'mA', 0.1)
 ])
 async def test_property_custom_get_value_float_conversion(hass, instance: str, unit, value):
     state = State('sensor.test', '100')

@@ -6,6 +6,11 @@ yandex_smart_home:
   settings:
     pressure_unit: mmHg
     beta: true
+  color_profile:
+    test:
+      red: [255, 0, 0]
+      green: ['0', '255', '0']
+      warm_white: 3000
   filter:
     include_domains:
       - switch
@@ -32,8 +37,8 @@ yandex_smart_home:
             - Wake up
           alarm:
             - Blink
+      color_profile: natural
     media_player.tv_lg:
-      channel_set_via_media_content_id: true
       custom_ranges:
         channel:
           set_value:
@@ -56,7 +61,7 @@ yandex_smart_home:
             service: script.decrease_volume
     fan.xiaomi_miio_device:
       name: Увлажнитель
-      room: Гостинная
+      room: Гостиная
       type: devices.types.humidifier
       properties:
         - type: temperature
@@ -129,3 +134,9 @@ yandex_smart_home:
         - type: temperature
           entity: climate.r4s1_kettle_temp
           attribute: current_temperature
+    cover.ir_cover:
+      name: Глупые шторы
+      state_unknown: true
+    input_text.button:
+      name: Кнопка на автоматизации
+      device_class: button

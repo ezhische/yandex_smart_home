@@ -6,12 +6,15 @@ import logging
 from typing import Any
 
 from homeassistant.components import (
+    automation,
+    button,
     climate,
     cover,
     fan,
     group,
     humidifier,
     input_boolean,
+    input_button,
     light,
     lock,
     media_player,
@@ -33,12 +36,15 @@ from homeassistant.const import (
     STATE_OFF,
     STATE_ON,
 )
-from homeassistant.core import DOMAIN as HA_DOMAIN, HomeAssistant, State
+from homeassistant.core import DOMAIN as HA_DOMAIN
+from homeassistant.exceptions import ServiceNotFound
 from homeassistant.helpers.service import async_call_from_config
 
 from . import const
 from .capability import PREFIX_CAPABILITIES, AbstractCapability, register_capability
-from .helpers import Config, RequestData
+from .const import ERR_NOT_SUPPORTED_IN_CURRENT_MODE
+from .error import SmartHomeError
+from .helpers import RequestData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,8 +60,18 @@ class OnOffCapability(AbstractCapability, ABC):
     type = CAPABILITIES_ONOFF
     instance = const.ON_OFF_INSTANCE_ON
 
+    @property
+    def retrievable(self) -> bool:
+        if self.entity_config.get(const.CONF_STATE_UNKNOWN):
+            return False
+
+        return True
+
     def parameters(self) -> dict[str, Any] | None:
         """Return parameters for a devices request."""
+        if not self.retrievable:
+            return {'split': True}
+
         return None
 
     def get_value(self) -> bool | None:
@@ -78,6 +94,15 @@ class OnOffCapability(AbstractCapability, ABC):
         pass
 
 
+class OnlyOnCapability(OnOffCapability, ABC):
+    @property
+    def retrievable(self) -> bool:
+        return False
+
+    def parameters(self) -> dict[str, Any] | None:
+        return None
+
+
 @register_capability
 class OnOffCapabilityBasic(OnOffCapability):
     def supported(self) -> bool:
@@ -91,6 +116,30 @@ class OnOffCapabilityBasic(OnOffCapability):
 
         await self.hass.services.async_call(
             self.state.domain,
+            service, {
+                ATTR_ENTITY_ID: self.state.entity_id
+            },
+            blocking=True,
+            context=data.context
+        )
+
+
+@register_capability
+class OnOffCapabilityAutomation(OnOffCapability):
+    def get_value(self) -> bool:
+        return self.state.state == STATE_ON
+
+    def supported(self) -> bool:
+        return self.state.domain == automation.DOMAIN
+
+    async def _set_state(self, data: RequestData, state: dict[str, Any]):
+        if state['value']:
+            service = SERVICE_TURN_ON
+        else:
+            service = SERVICE_TURN_OFF
+
+        await self.hass.services.async_call(
+            automation.DOMAIN,
             service, {
                 ATTR_ENTITY_ID: self.state.entity_id
             },
@@ -121,9 +170,7 @@ class OnOffCapabilityGroup(OnOffCapability):
 
 
 @register_capability
-class OnOffCapabilityScript(OnOffCapability):
-    retrievable = False
-
+class OnOffCapabilityScript(OnlyOnCapability):
     def get_value(self) -> bool | None:
         return None
 
@@ -137,6 +184,44 @@ class OnOffCapabilityScript(OnOffCapability):
                 ATTR_ENTITY_ID: self.state.entity_id
             },
             blocking=self.state.domain != script.DOMAIN,
+            context=data.context
+        )
+
+
+@register_capability
+class OnOffCapabilityButton(OnlyOnCapability):
+    def get_value(self) -> bool | None:
+        return None
+
+    def supported(self) -> bool:
+        return self.state.domain == button.DOMAIN
+
+    async def _set_state(self, data: RequestData, state: dict[str, Any]):
+        await self.hass.services.async_call(
+            self.state.domain,
+            button.SERVICE_PRESS, {
+                ATTR_ENTITY_ID: self.state.entity_id
+            },
+            blocking=True,
+            context=data.context
+        )
+
+
+@register_capability
+class OnOffCapabilityInputButton(OnlyOnCapability):
+    def get_value(self) -> bool | None:
+        return None
+
+    def supported(self) -> bool:
+        return self.state.domain == input_button.DOMAIN
+
+    async def _set_state(self, data: RequestData, state: dict[str, Any]):
+        await self.hass.services.async_call(
+            self.state.domain,
+            input_button.SERVICE_PRESS, {
+                ATTR_ENTITY_ID: self.state.entity_id
+            },
+            blocking=True,
             context=data.context
         )
 
@@ -167,23 +252,8 @@ class OnOffCapabilityLock(OnOffCapability):
 
 @register_capability
 class OnOffCapabilityCover(OnOffCapability):
-    def __init__(self, hass: HomeAssistant, config: Config, state: State):
-        super().__init__(hass, config, state)
-        features = self.state.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-
-        if not features & cover.SUPPORT_SET_POSITION:
-            self.retrievable = False
-
     def get_value(self) -> bool:
         return self.state.state == cover.STATE_OPEN
-
-    def parameters(self) -> dict[str, Any] | None:
-        features = self.state.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-
-        if not features & cover.SUPPORT_SET_POSITION:
-            return {'split': True}
-
-        return None
 
     def supported(self) -> bool:
         return self.state.domain == cover.DOMAIN
@@ -213,22 +283,11 @@ class OnOffCapabilityMediaPlayer(OnOffCapability):
             if const.CONF_TURN_ON in self.entity_config or const.CONF_TURN_OFF in self.entity_config:
                 return True
 
-            return features & media_player.SUPPORT_TURN_ON or features & media_player.SUPPORT_TURN_OFF
+            if const.MEDIA_PLAYER_FEATURE_TURN_ON_OFF in self.entity_config.get(const.CONF_FEATURES, []):
+                return True
 
-        return False
-
-    def parameters(self) -> dict[str, Any] | None:
-        if not self.retrievable:
-            return {'split': True}
-
-    @property
-    def retrievable(self) -> bool:
-        features = self.state.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-        support_turn_on = const.CONF_TURN_ON in self.entity_config or features & media_player.SUPPORT_TURN_ON
-        support_turn_off = const.CONF_TURN_OFF in self.entity_config or features & media_player.SUPPORT_TURN_OFF
-
-        if support_turn_on and support_turn_off:
-            return True
+            return features & media_player.MediaPlayerEntityFeature.TURN_ON or \
+                features & media_player.MediaPlayerEntityFeature.TURN_OFF
 
         return False
 
@@ -262,11 +321,11 @@ class OnOffCapabilityVacuum(OnOffCapability):
 
         features = self.state.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
 
-        if features & vacuum.SUPPORT_TURN_ON and features & vacuum.SUPPORT_TURN_OFF:
+        if features & vacuum.VacuumEntityFeature.TURN_ON and features & vacuum.VacuumEntityFeature.TURN_OFF:
             return True
 
-        if features & vacuum.SUPPORT_START:
-            if features & vacuum.SUPPORT_RETURN_HOME or features & vacuum.SUPPORT_STOP:
+        if features & vacuum.VacuumEntityFeature.START:
+            if features & vacuum.VacuumEntityFeature.RETURN_HOME or features & vacuum.VacuumEntityFeature.STOP:
                 return True
 
         return False
@@ -275,14 +334,14 @@ class OnOffCapabilityVacuum(OnOffCapability):
         features = self.state.attributes.get(ATTR_SUPPORTED_FEATURES)
 
         if state['value']:
-            if features & vacuum.SUPPORT_START:
+            if features & vacuum.VacuumEntityFeature.START:
                 service = vacuum.SERVICE_START
             else:
                 service = SERVICE_TURN_ON
         else:
-            if features & vacuum.SUPPORT_RETURN_HOME:
+            if features & vacuum.VacuumEntityFeature.RETURN_HOME:
                 service = vacuum.SERVICE_RETURN_TO_BASE
-            elif features & vacuum.SUPPORT_STOP:
+            elif features & vacuum.VacuumEntityFeature.STOP:
                 service = vacuum.SERVICE_STOP
             else:
                 service = SERVICE_TURN_OFF
@@ -314,8 +373,8 @@ class OnOffCapabilityClimate(OnOffCapability):
             service = SERVICE_TURN_ON
 
             hvac_modes = self.state.attributes.get(climate.ATTR_HVAC_MODES)
-            for mode in (climate.const.HVAC_MODE_HEAT_COOL,
-                         climate.const.HVAC_MODE_AUTO):
+            for mode in (climate.HVACMode.HEAT_COOL,
+                         climate.HVACMode.AUTO):
                 if mode not in hvac_modes:
                     continue
 
@@ -342,9 +401,7 @@ class OnOffCapabilityWaterHeater(OnOffCapability):
     }
 
     def get_value(self) -> bool | None:
-        operation_mode = self.state.attributes.get(water_heater.ATTR_OPERATION_MODE)
-        operation_list = self.state.attributes.get(water_heater.ATTR_OPERATION_LIST)
-        return operation_mode != self.get_water_heater_operation(STATE_OFF, operation_list)
+        return self.state.state.lower() != water_heater.STATE_OFF
 
     def get_water_heater_operation(self, required_mode: str, operations_list: list[str]) -> str | None:
         for operation in self.water_heater_operations[required_mode]:
@@ -354,30 +411,42 @@ class OnOffCapabilityWaterHeater(OnOffCapability):
         return None
 
     def supported(self) -> bool:
-        if self.state.domain != water_heater.DOMAIN:
-            return False
-
-        features = self.state.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-
-        if features & water_heater.SUPPORT_OPERATION_MODE:
-            operation_list = self.state.attributes.get(water_heater.ATTR_OPERATION_LIST)
-            if self.get_water_heater_operation(STATE_ON, operation_list) is None:
-                return False
-
-            if self.get_water_heater_operation(STATE_OFF, operation_list) is None:
-                return False
-
-            return True
-
-        return False
+        return self.state.domain == water_heater.DOMAIN
 
     async def _set_state(self, data: RequestData, state: dict[str, Any]):
+        if state['value']:
+            service = water_heater.SERVICE_TURN_ON
+        else:
+            service = water_heater.SERVICE_TURN_OFF
+
+        try:
+            await self.hass.services.async_call(
+                water_heater.DOMAIN,
+                service, {
+                    ATTR_ENTITY_ID: self.state.entity_id,
+                },
+                blocking=True,
+                context=data.context
+            )
+
+            return
+        except (AttributeError, ServiceNotFound):
+            # turn_on/turn_off is not supported
+            pass
+
         operation_list = self.state.attributes.get(water_heater.ATTR_OPERATION_LIST)
 
         if state['value']:
             mode = self.get_water_heater_operation(STATE_ON, operation_list)
         else:
             mode = self.get_water_heater_operation(STATE_OFF, operation_list)
+
+        if not mode:
+            target_state_text = 'on' if state['value'] else 'off'
+            raise SmartHomeError(
+                ERR_NOT_SUPPORTED_IN_CURRENT_MODE,
+                f'Unable to determine operation mode for {target_state_text} state'
+            )
 
         await self.hass.services.async_call(
             water_heater.DOMAIN,

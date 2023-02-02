@@ -152,6 +152,22 @@ async def test_cloud_try_reconnect(hass_platform_cloud_connection, config, aiocl
 
 
 # noinspection PyTypeChecker
+async def test_cloud_fast_reconnect(hass_platform_cloud_connection, config, aioclient_mock, mock_call_later, caplog):
+    hass = hass_platform_cloud_connection
+
+    session = MockSession(aioclient_mock, ws_close_code=1000)
+    manager = CloudManager(hass, config, session)
+
+    for _ in range(1, 5):
+        await manager.connect()
+        assert manager._ws_reconnect_delay == 4
+
+    await manager.connect()
+    assert manager._ws_reconnect_delay == 180
+    assert 'too fast' in caplog.records[-2].message
+
+
+# noinspection PyTypeChecker
 async def test_cloud_messages_invalid_format(hass_platform_cloud_connection, config, aioclient_mock):
     hass = hass_platform_cloud_connection
 
@@ -218,6 +234,23 @@ async def test_cloud_req_user_devices(hass_platform_cloud_connection, config, ai
                     'model': 'sensor.outside_temp',
                 }
             }, {
+                'id': 'binary_sensor.front_door',
+                'name': 'Front Door',
+                'type': 'devices.types.sensor',
+                'capabilities': [],
+                'properties': [{
+                    'type': 'devices.properties.event',
+                    'retrievable': True,
+                    'reportable': True,
+                    'parameters': {
+                        'instance': 'open',
+                        'events': [{'value': 'opened'}, {'value': 'closed'}]
+                    }
+                }],
+                'device_info': {
+                    'model': 'binary_sensor.front_door'
+                },
+            }, {
                 'id': 'light.kitchen',
                 'name': 'Kitchen Light',
                 'type': 'devices.types.light',
@@ -227,7 +260,7 @@ async def test_cloud_req_user_devices(hass_platform_cloud_connection, config, ai
                     'reportable': True,
                     'parameters': {
                         'color_model': 'rgb',
-                        'temperature_k': {'min': 2000, 'max': 6535}
+                        'temperature_k': {'min': 1500, 'max': 6500}
                     }
                 }, {
                     'type': 'devices.capabilities.range',

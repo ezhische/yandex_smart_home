@@ -28,6 +28,7 @@ class AbstractProperty(ABC):
     instance = ''
     values = []
     retrievable = True
+    report_immediately = False
 
     def __init__(self, hass: HomeAssistant, config: Config, state: State):
         """Initialize a trait for a state."""
@@ -35,6 +36,7 @@ class AbstractProperty(ABC):
         self.config = config
         self.state = state
 
+        self.entity_config = config.get_entity_config(state.entity_id)
         self.reportable = config.is_reporting_state
 
     @abstractmethod

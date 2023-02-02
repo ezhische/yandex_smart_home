@@ -2,14 +2,16 @@
 from unittest.mock import patch
 
 from homeassistant.components import http
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
+from homeassistant.components.demo.binary_sensor import DemoBinarySensor
 from homeassistant.components.demo.light import DemoLight
 from homeassistant.components.demo.sensor import DemoSensor
 from homeassistant.components.sensor import STATE_CLASS_MEASUREMENT
-from homeassistant.config import YAML_CONFIG_FILE
 from homeassistant.const import DEVICE_CLASS_TEMPERATURE, TEMP_CELSIUS
+from homeassistant.helpers import entityfilter
 from homeassistant.setup import async_setup_component
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry, patch_yaml_files
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.yandex_smart_home import DOMAIN, async_setup, async_setup_entry, const
 
@@ -23,7 +25,14 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 @pytest.fixture
 def config_entry():
-    return MockConfigEntry(domain=DOMAIN)
+    return MockConfigEntry(
+        domain=DOMAIN,
+        options={
+            const.CONF_FILTER: {
+                entityfilter.CONF_INCLUDE_ENTITY_GLOBS: ['*']
+            }
+        }
+    )
 
 
 @pytest.fixture
@@ -44,6 +53,10 @@ def config_entry_cloud_connection():
             const.CONF_CLOUD_INSTANCE_ID: 'test',
             const.CONF_CLOUD_INSTANCE_CONNECTION_TOKEN: 'foo',
 
+        }
+    }, options={
+        const.CONF_FILTER: {
+            entityfilter.CONF_INCLUDE_ENTITY_GLOBS: ['*']
         }
     })
 
@@ -85,10 +98,9 @@ def hass_platform(loop, hass, config_entry):
         hass.async_block_till_done()
     )
 
-    with patch.object(hass.config_entries.flow, 'async_init', return_value=None), patch_yaml_files({
-        YAML_CONFIG_FILE: 'yandex_smart_home:'
-    }):
-        loop.run_until_complete(async_setup(hass, {DOMAIN: {}}))
+    config_entry.add_to_hass(hass)
+    with patch.object(hass.config_entries.flow, 'async_init', return_value=None):
+        loop.run_until_complete(async_setup(hass, {}))
         loop.run_until_complete(async_setup_entry(hass, config_entry))
 
     return hass
@@ -108,9 +120,19 @@ def hass_platform_cloud_connection(loop, hass, config_entry_cloud_connection):
     demo_sensor.hass = hass
     demo_sensor.entity_id = 'sensor.outside_temp'
 
+    demo_binary_sensor = DemoBinarySensor(
+        unique_id='front_door',
+        name='Front Door',
+        state=True,
+        device_class=BinarySensorDeviceClass.DOOR,
+    )
+    demo_binary_sensor.hass = hass
+    demo_binary_sensor.entity_id = 'binary_sensor.front_Door'
+
     demo_light = DemoLight(
         unique_id='light_kitchen',
         name='Kitchen Light',
+        ct=240,
         available=True,
         state=True,
     )
@@ -119,6 +141,9 @@ def hass_platform_cloud_connection(loop, hass, config_entry_cloud_connection):
 
     loop.run_until_complete(
         demo_sensor.async_update_ha_state()
+    )
+    loop.run_until_complete(
+        demo_binary_sensor.async_update_ha_state()
     )
     loop.run_until_complete(
         demo_light.async_update_ha_state()
@@ -131,13 +156,10 @@ def hass_platform_cloud_connection(loop, hass, config_entry_cloud_connection):
         hass.async_block_till_done()
     )
 
-    with patch.object(hass.config_entries.flow, 'async_init', return_value=None), patch_yaml_files({
-        YAML_CONFIG_FILE: 'yandex_smart_home:'
-    }):
-        config_entry_cloud_connection.add_to_hass(hass)
-        loop.run_until_complete(async_setup(hass, {DOMAIN: {}}))
-        with patch('custom_components.yandex_smart_home.cloud.CloudManager.connect', return_value=None):
-            loop.run_until_complete(async_setup_entry(hass, config_entry_cloud_connection))
+    config_entry_cloud_connection.add_to_hass(hass)
+    loop.run_until_complete(async_setup(hass, {}))
+    with patch('custom_components.yandex_smart_home.cloud.CloudManager.connect', return_value=None):
+        loop.run_until_complete(async_setup_entry(hass, config_entry_cloud_connection))
 
     return hass
 

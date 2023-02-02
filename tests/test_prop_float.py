@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from homeassistant.components import air_quality, binary_sensor, climate, cover, fan, humidifier, light, sensor, switch
+from homeassistant.components import (
+    air_quality,
+    binary_sensor,
+    climate,
+    cover,
+    fan,
+    humidifier,
+    light,
+    sensor,
+    switch,
+    water_heater,
+)
 from homeassistant.const import (
     ATTR_BATTERY_LEVEL,
     ATTR_DEVICE_CLASS,
@@ -106,6 +117,8 @@ async def test_property_float_humidity(hass, domain, device_class, attribute, su
     (fan.DOMAIN, None, None, False),
     (humidifier.DOMAIN, None, climate.ATTR_CURRENT_TEMPERATURE, True),
     (humidifier.DOMAIN, None, None, False),
+    (water_heater.DOMAIN, None, climate.ATTR_CURRENT_TEMPERATURE, True),
+    (water_heater.DOMAIN, None, None, False),
 ])
 async def test_property_float_temperature(hass, domain, device_class, attribute, supported):
     attributes = {}
@@ -152,7 +165,7 @@ async def test_property_float_temperature(hass, domain, device_class, attribute,
     (const.PRESSURE_UNIT_BAR, 0.99),
 ])
 def test_property_float_pressure(hass, yandex_pressure_unit, v):
-    entry = MockConfigEntry(data={
+    entry = MockConfigEntry(options={
         const.CONF_PRESSURE_UNIT: yandex_pressure_unit
     })
     config = MockConfig(entry=entry)
@@ -355,6 +368,22 @@ async def test_property_float_tvoc(hass, unit, v):
 
     prop.state = State('air_quality.test', STATE_ON, {'total_volatile_organic_compounds': None})
     assert prop.get_value() is None
+
+
+@pytest.mark.parametrize('unit,v', [
+    ('A', 1245),
+    ('mA', 1.245),
+])
+async def test_property_float_amperage_value(hass, unit, v):
+    state = State('switch.test', STATE_ON, {
+        'current': 1245,
+        ATTR_UNIT_OF_MEASUREMENT: unit
+    })
+    prop = get_exact_one_property(hass, BASIC_CONFIG, state, PROPERTY_FLOAT, const.FLOAT_INSTANCE_AMPERAGE)
+
+    assert prop.retrievable
+    assert prop.parameters() == {'instance': const.FLOAT_INSTANCE_AMPERAGE, 'unit': 'unit.ampere'}
+    assert prop.get_value() == v
 
 
 @pytest.mark.parametrize('domain,device_class,attribute,instance,unit,supported', [

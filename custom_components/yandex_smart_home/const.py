@@ -1,13 +1,18 @@
 """Constants for Yandex Smart Home."""
 from homeassistant.components import (
     air_quality,
+    automation,
     binary_sensor,
+    button,
+    camera,
     climate,
     cover,
     fan,
     group,
     humidifier,
     input_boolean,
+    input_button,
+    input_text,
     light,
     lock,
     media_player,
@@ -21,12 +26,17 @@ from homeassistant.components import (
 
 DOMAIN = 'yandex_smart_home'
 CONFIG = 'config'
+YAML_CONFIG = 'yaml_config'
+YAML_CONFIG_HASH = 'yaml_config_hash'
+CONFIG_ENTRY_TITLE = 'Yandex Smart Home'
 NOTIFIERS = 'notifiers'
 CLOUD_MANAGER = 'cloud_manager'
+CLOUD_STREAMS = 'cloud_streams'
 
 CONF_SETTINGS = 'settings'
 CONF_PRESSURE_UNIT = 'pressure_unit'
 CONF_BETA = 'beta'
+CONF_CLOUD_STREAM = 'cloud_stream'
 CONF_NOTIFIER = 'notifier'
 CONF_NOTIFIER_OAUTH_TOKEN = 'oauth_token'
 CONF_NOTIFIER_SKILL_ID = 'skill_id'
@@ -38,6 +48,7 @@ CONF_CLOUD_INSTANCE_PASSWORD = 'password'
 CONF_CLOUD_INSTANCE_CONNECTION_TOKEN = 'token'
 CONF_USER_ID = 'user_id'
 CONF_DEVICES_DISCOVERED = 'devices_discovered'
+CONF_COLOR_PROFILE = 'color_profile'
 CONF_ENTITY_CONFIG = 'entity_config'
 CONF_FILTER = 'filter'
 CONF_NAME = 'name'
@@ -45,9 +56,10 @@ CONF_ROOM = 'room'
 CONF_TYPE = 'type'
 CONF_TURN_ON = 'turn_on'
 CONF_TURN_OFF = 'turn_off'
+CONF_DEVICE_CLASS = 'device_class'
 CONF_FEATURES = 'features'
 CONF_SUPPORT_SET_CHANNEL = 'support_set_channel'
-CONF_CHANNEL_SET_VIA_MEDIA_CONTENT_ID = 'channel_set_via_media_content_id'  # Deprecated
+CONF_STATE_UNKNOWN = 'state_unknown'
 CONF_ENTITY_PROPERTY_ENTITY = 'entity'
 CONF_ENTITY_PROPERTY_TYPE = 'type'
 CONF_ENTITY_PROPERTY_ATTRIBUTE = 'attribute'
@@ -75,7 +87,10 @@ STORE_CACHE_ATTRS = 'attrs'
 CONNECTION_TYPE_DIRECT = 'direct'
 CONNECTION_TYPE_CLOUD = 'cloud'
 
+CLOUD_BASE_URL = 'https://yaha-cloud.ru'
+CLOUD_STREAM_BASE_URL = 'https://stream.yaha-cloud.ru'
 EVENT_DEVICE_DISCOVERY = 'yandex_smart_home_device_discovery'
+EVENT_CONFIG_CHANGED = 'yandex_smart_home_config_changed'
 
 # https://yandex.ru/dev/dialogs/smart-home/doc/concepts/device-types.html
 PREFIX_TYPES = 'devices.types.'
@@ -88,6 +103,7 @@ TYPE_MEDIA_DEVICE = PREFIX_TYPES + 'media_device'
 TYPE_MEDIA_DEVICE_TV = PREFIX_TYPES + 'media_device.tv'
 TYPE_MEDIA_DEVICE_TV_BOX = PREFIX_TYPES + 'media_device.tv_box'
 TYPE_MEDIA_DEVICE_RECIEVER = PREFIX_TYPES + 'media_device.receiver'
+TYPE_CAMERA = PREFIX_TYPES + 'camera'
 TYPE_COOKING = PREFIX_TYPES + 'cooking'
 TYPE_COFFEE_MAKER = PREFIX_TYPES + 'cooking.coffee_maker'
 TYPE_KETTLE = PREFIX_TYPES + 'cooking.kettle'
@@ -102,6 +118,17 @@ TYPE_WASHING_MACHINE = PREFIX_TYPES + 'washing_machine'
 TYPE_DISHWASHER = PREFIX_TYPES + 'dishwasher'
 TYPE_IRON = PREFIX_TYPES + 'iron'
 TYPE_SENSOR = PREFIX_TYPES + 'sensor'
+TYPE_SENSOR_MOTION = TYPE_SENSOR + '.motion'
+TYPE_SENSOR_VIBRATION = TYPE_SENSOR + '.vibration'
+TYPE_SENSOR_ILLUMINATION = TYPE_SENSOR + '.illumination'
+TYPE_SENSOR_OPEN = TYPE_SENSOR + '.open'
+TYPE_SENSOR_CLIMATE = TYPE_SENSOR + '.climate'
+TYPE_SENSOR_WATER_LEAK = TYPE_SENSOR + '.water_leak'
+TYPE_SENSOR_BUTTON = TYPE_SENSOR + '.button'
+TYPE_SENSOR_GAS = TYPE_SENSOR + '.gas'
+TYPE_SENSOR_SMOKE = TYPE_SENSOR + '.smoke'
+TYPE_PET_DRINKING_FOUNTAIN = PREFIX_TYPES + 'pet_drinking_fountain'
+TYPE_PET_FEEDER = PREFIX_TYPES + 'pet_feeder'
 TYPE_OTHER = PREFIX_TYPES + 'other'
 TYPES = (
     TYPE_LIGHT,
@@ -113,6 +140,7 @@ TYPES = (
     TYPE_MEDIA_DEVICE_TV,
     TYPE_MEDIA_DEVICE_TV_BOX,
     TYPE_MEDIA_DEVICE_RECIEVER,
+    TYPE_CAMERA,
     TYPE_COOKING,
     TYPE_COFFEE_MAKER,
     TYPE_KETTLE,
@@ -127,27 +155,43 @@ TYPES = (
     TYPE_DISHWASHER,
     TYPE_IRON,
     TYPE_SENSOR,
+    TYPE_SENSOR_MOTION,
+    TYPE_SENSOR_VIBRATION,
+    TYPE_SENSOR_ILLUMINATION,
+    TYPE_SENSOR_OPEN,
+    TYPE_SENSOR_CLIMATE,
+    TYPE_SENSOR_WATER_LEAK,
+    TYPE_SENSOR_BUTTON,
+    TYPE_SENSOR_GAS,
+    TYPE_SENSOR_SMOKE,
+    TYPE_PET_DRINKING_FOUNTAIN,
+    TYPE_PET_FEEDER,
     TYPE_OTHER,
 )
 
 DOMAIN_TO_YANDEX_TYPES = {
+    air_quality.DOMAIN: TYPE_SENSOR,
+    automation.DOMAIN: TYPE_OTHER,
     binary_sensor.DOMAIN: TYPE_SENSOR,
+    button.DOMAIN: TYPE_OTHER,
+    camera.DOMAIN: TYPE_CAMERA,
     climate.DOMAIN: TYPE_THERMOSTAT,
     cover.DOMAIN: TYPE_OPENABLE_CURTAIN,
     fan.DOMAIN: TYPE_FAN,
     group.DOMAIN: TYPE_SWITCH,
     humidifier.DOMAIN: TYPE_HUMIDIFIER,
     input_boolean.DOMAIN: TYPE_SWITCH,
+    input_button.DOMAIN: TYPE_OTHER,
+    input_text.DOMAIN: TYPE_SENSOR,
     light.DOMAIN: TYPE_LIGHT,
     lock.DOMAIN: TYPE_OPENABLE,
     media_player.DOMAIN: TYPE_MEDIA_DEVICE,
     scene.DOMAIN: TYPE_OTHER,
     script.DOMAIN: TYPE_OTHER,
+    sensor.DOMAIN: TYPE_SENSOR,
     switch.DOMAIN: TYPE_SWITCH,
     vacuum.DOMAIN: TYPE_VACUUM_CLEANER,
     water_heater.DOMAIN: TYPE_KETTLE,
-    sensor.DOMAIN: TYPE_SENSOR,
-    air_quality.DOMAIN: TYPE_SENSOR,
 }
 
 DEVICE_CLASS_TO_YANDEX_TYPES = {
@@ -225,6 +269,8 @@ MODE_INSTANCES = (
     MODE_INSTANCE_WORK_SPEED,
 )
 
+VIDEO_STREAM_INSTANCE_GET_STREAM = 'get_stream'
+
 # https://yandex.ru/dev/dialogs/smart-home/doc/concepts/color_setting.html#discovery__discovery-parameters-color-setting-table__entry__75
 COLOR_SETTING_RGB = 'rgb'
 COLOR_SETTING_TEMPERATURE_K = 'temperature_k'
@@ -266,6 +312,59 @@ COLOR_SCENES = (
     COLOR_SCENE_SIREN,
     COLOR_SCENE_SUNRISE,
     COLOR_SCENE_SUNSET,
+)
+
+COLOR_NAME_RED = 'red'
+COLOR_NAME_CORAL = 'coral'
+COLOR_NAME_ORANGE = 'orange'
+COLOR_NAME_YELLOW = 'yellow'
+COLOR_NAME_LIME = 'lime'
+COLOR_NAME_GREEN = 'green'
+COLOR_NAME_EMERALD = 'emerald'
+COLOR_NAME_TURQUOISE = 'turquoise'
+COLOR_NAME_CYAN = 'cyan'
+COLOR_NAME_BLUE = 'blue'
+COLOR_NAME_MOONLIGHT = 'moonlight'
+COLOR_NAME_LAVENDER = 'lavender'
+COLOR_NAME_VIOLET = 'violet'
+COLOR_NAME_PURPLE = 'purple'
+COLOR_NAME_ORCHID = 'orchid'
+COLOR_NAME_MAUVE = 'mauve'
+COLOR_NAME_RASPBERRY = 'raspberry'
+COLOR_TEMPERATURE_NAME_FIERY_WHITE = 'fiery_white'
+COLOR_TEMPERATURE_NAME_SOFT_WHITE = 'soft_white'
+COLOR_TEMPERATURE_NAME_WARM_WHITE = 'warm_white'
+COLOR_TEMPERATURE_NAME_WHITE = 'white'
+COLOR_TEMPERATURE_NAME_DAYLIGHT = 'daylight'
+COLOR_TEMPERATURE_NAME_COLD_WHITE = 'cold_white'
+COLOR_TEMPERATURE_NAME_MISTY_WHITE = 'misty_white'
+COLOR_TEMPERATURE_NAME_HEAVENLY_WHITE = 'heavenly_white'
+COLOR_NAMES = (
+    COLOR_NAME_RED,
+    COLOR_NAME_CORAL,
+    COLOR_NAME_ORANGE,
+    COLOR_NAME_YELLOW,
+    COLOR_NAME_LIME,
+    COLOR_NAME_GREEN,
+    COLOR_NAME_EMERALD,
+    COLOR_NAME_TURQUOISE,
+    COLOR_NAME_CYAN,
+    COLOR_NAME_BLUE,
+    COLOR_NAME_MOONLIGHT,
+    COLOR_NAME_LAVENDER,
+    COLOR_NAME_VIOLET,
+    COLOR_NAME_PURPLE,
+    COLOR_NAME_ORCHID,
+    COLOR_NAME_MAUVE,
+    COLOR_NAME_RASPBERRY,
+    COLOR_TEMPERATURE_NAME_FIERY_WHITE,
+    COLOR_TEMPERATURE_NAME_SOFT_WHITE,
+    COLOR_TEMPERATURE_NAME_WARM_WHITE,
+    COLOR_TEMPERATURE_NAME_WHITE,
+    COLOR_TEMPERATURE_NAME_DAYLIGHT,
+    COLOR_TEMPERATURE_NAME_COLD_WHITE,
+    COLOR_TEMPERATURE_NAME_MISTY_WHITE,
+    COLOR_TEMPERATURE_NAME_HEAVENLY_WHITE
 )
 
 # https://yandex.ru/dev/dialogs/smart-home/doc/concepts/mode-instance-modes.html
@@ -523,6 +622,7 @@ STATE_LOW = 'low'
 ATTR_CURRENT = 'current'
 ATTR_ILLUMINANCE = 'illuminance'
 ATTR_LOAD_POWER = 'load_power'
+ATTR_CURRENT_CONSUMPTION = 'current_consumption'
 ATTR_POWER = 'power'
 ATTR_TVOC = 'total_volatile_organic_compounds'
 ATTR_WATER_LEVEL = 'water_level'
@@ -543,6 +643,9 @@ XIAOMI_FAN_PRESET_LEVEL_5 = 'Level 5'
 # https://github.com/home-assistant/core/blob/d5a8f1af1d2dc74a12fb6870a4f1cb5318f88bf9/homeassistant/components/xiaomi_miio/fan.py#L744
 XIAOMI_FAN_PRESET_NATURE = 'Nature'
 XIAOMI_FAN_PRESET_NORMAL = 'Normal'
+
+# https://github.com/ollo69/ha-smartthinq-sensors/blob/2d6212c9e060dc1d4947e1fed195af154442b941/custom_components/smartthinq_sensors/wideq/ac.py#L141
+SMARTTHINQ_FAN_PRESET_NATURE = 'NATURE'
 
 # https://github.com/home-assistant/core/blob/6830eec549c372946b19035000c10afecd2f2da3/homeassistant/components/xiaomi_miio/fan.py#L275
 XIAOMI_AIRPURIFIER_PRESET_AUTO = 'Auto'
@@ -567,6 +670,12 @@ TION_FAN_SPEED_4 = '4'
 TION_FAN_SPEED_5 = '5'
 TION_FAN_SPEED_6 = '6'
 
+# https://github.com/home-assistant/core/pull/67743
+FAN_SPEED_OFF = 'off'
+FAN_SPEED_LOW = 'low'
+FAN_SPEED_MEDIUM = 'medium'
+FAN_SPEED_HIGH = 'high'
+
 # https://github.com/dmitry-k/yandex_smart_home/issues/173
 FAN_SPEED_MIN = 'min'
 FAN_SPEED_MAX = 'max'
@@ -574,11 +683,25 @@ FAN_SPEED_MAX = 'max'
 # https://github.com/dmitry-k/yandex_smart_home/issues/347
 FAN_SPEED_MID = 'mid'
 
+# SmartIR
+FAN_SPEED_HIGHEST = 'highest'
+
+# Fake device class
+DEVICE_CLASS_BUTTON = 'button'
+
 MEDIA_PLAYER_FEATURE_VOLUME_MUTE = 'volume_mute'
 MEDIA_PLAYER_FEATURE_VOLUME_SET = 'volume_set'
 MEDIA_PLAYER_FEATURE_NEXT_PREVIOUS_TRACK = 'next_previous_track'
+MEDIA_PLAYER_FEATURE_SELECT_SOURCE = 'select_source'
+MEDIA_PLAYER_FEATURE_TURN_ON_OFF = 'turn_on_off'
+MEDIA_PLAYER_FEATURE_PLAY_PAUSE = 'play_pause'
+MEDIA_PLAYER_FEATURE_PLAY_MEDIA = 'play_media'
 MEDIA_PLAYER_FEATURES = (
     MEDIA_PLAYER_FEATURE_VOLUME_MUTE,
     MEDIA_PLAYER_FEATURE_VOLUME_SET,
-    MEDIA_PLAYER_FEATURE_NEXT_PREVIOUS_TRACK
+    MEDIA_PLAYER_FEATURE_NEXT_PREVIOUS_TRACK,
+    MEDIA_PLAYER_FEATURE_SELECT_SOURCE,
+    MEDIA_PLAYER_FEATURE_TURN_ON_OFF,
+    MEDIA_PLAYER_FEATURE_PLAY_PAUSE,
+    MEDIA_PLAYER_FEATURE_PLAY_MEDIA,
 )
